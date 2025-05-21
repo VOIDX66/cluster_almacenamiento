@@ -2,6 +2,7 @@ use std::fs;
 use std::path::Path;
 use std::process::Command;
 use dialoguer::Input;
+use users::get_user_by_name;
 
 pub fn mount_volume() {
     println!("\n📂 Montar volumen GlusterFS");
@@ -45,9 +46,18 @@ pub fn mount_volume() {
     if let Ok(s) = status {
         if s.success() {
             println!("✅ Volumen montado exitosamente.");
-            use whoami;
 
-            let username = whoami::username();
+            // 🔐 Solicitar nombre de usuario para asignar permisos
+            let username: String = Input::new()
+                .with_prompt("🔒 ¿A qué usuario quieres dar permisos del punto de montaje?")
+                .interact_text()
+                .unwrap();
+
+            // Validar si el usuario existe en el sistema
+            if get_user_by_name(&username).is_none() {
+                println!("❌ El usuario '{}' no existe en el sistema.", username);
+                return;
+            }
 
             let chown_status = Command::new("sudo")
                 .arg("chown")
@@ -62,7 +72,6 @@ pub fn mount_volume() {
                     println!("⚠️ No se pudo cambiar la propiedad del punto de montaje.");
                 }
             }
-            
         } else {
             println!("❌ Falló el montaje. Verifica que el volumen esté iniciado y que tengas permisos.");
         }
