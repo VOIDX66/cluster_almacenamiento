@@ -1,5 +1,6 @@
 use dialoguer::{Input, Select, Confirm};
 use std::process::Command;
+use std::io::{self, Write};
 
 pub fn create_volume() {
     println!("\n📦 Crear volumen GlusterFS");
@@ -9,13 +10,13 @@ pub fn create_volume() {
         .interact_text()
         .unwrap();
 
-    let is_replica = Confirm::new()
-        .with_prompt("¿Es un volumen replicado?")
+    let use_ha = Confirm::new()
+        .with_prompt("¿Quieres habilitar alta disponibilidad (HA) con réplicas?")
         .default(true)
         .interact()
         .unwrap();
 
-    // cmd es Vec<String>
+    // Comando base
     let mut cmd: Vec<String> = vec![
         "gluster".to_string(),
         "volume".to_string(),
@@ -23,7 +24,9 @@ pub fn create_volume() {
         vol_name.clone(),
     ];
 
-    if is_replica {
+    let mut min_bricks = 1;
+
+    if use_ha {
         let replica_count: String = Input::new()
             .with_prompt("¿Cuántas réplicas?")
             .default("2".into())
@@ -31,7 +34,10 @@ pub fn create_volume() {
             .unwrap();
 
         cmd.push("replica".to_string());
-        cmd.push(replica_count);
+        cmd.push(replica_count.clone());
+
+        // Se requieren al menos tantas bricks como réplicas
+        min_bricks = replica_count.parse::<usize>().unwrap_or(2);
     }
 
     println!("🧱 Ahora ingresa los bricks para este volumen.");
@@ -56,15 +62,16 @@ pub fn create_volume() {
         }
     }
 
-    if bricks.len() < 2 && is_replica {
-        eprintln!("❌ Se necesitan al menos 2 bricks para replicación.");
+    if bricks.len() < min_bricks {
+        eprintln!(
+            "❌ Se necesitan al menos {} bricks {}.",
+            min_bricks,
+            if use_ha { "para replicación (HA)" } else { "" }
+        );
         return;
     }
 
-    for brick in bricks {
-        cmd.push(brick);
-    }
-
+    cmd.extend(bricks);
     cmd.push("force".to_string());
 
     println!("🚀 Ejecutando comando:");
@@ -72,18 +79,14 @@ pub fn create_volume() {
 
     let status = Command::new("sudo")
         .arg("gluster")
-        .args(&cmd[1..]) // los argumentos después de "gluster"
+        .args(&cmd[1..]) // todos menos el primero "gluster"
         .status()
         .expect("Error al ejecutar el comando");
 
     if status.success() {
         println!("✅ Volumen creado exitosamente.");
-        // Intentamos iniciar el volumen automáticamente
         let start_status = Command::new("sudo")
-            .arg("gluster")
-            .arg("volume")
-            .arg("start")
-            .arg(&vol_name)
+            .args(["gluster", "volume", "start", &vol_name])
             .status();
 
         if let Ok(st) = start_status {
@@ -101,7 +104,7 @@ pub fn create_volume() {
 pub fn manage_volumes() {
     loop {
         let options = vec![
-            "📋 Listar volúmenes",
+            "📋 Listar volúmenes (con detalles)",
             "▶️ Iniciar volumen",
             "⏹️ Detener volumen",
             "🗑️ Eliminar volumen",
@@ -117,8 +120,9 @@ pub fn manage_volumes() {
 
         match selection {
             0 => {
+                // Mostrar información detallada del volumen
                 let _ = Command::new("gluster")
-                    .args(["volume", "list"])
+                    .args(["volume", "info"])
                     .status();
             }
             1 => {
@@ -146,7 +150,7 @@ pub fn manage_volumes() {
                     .unwrap();
 
                 if Confirm::new()
-                    .with_prompt("¿Estás seguro de que deseas eliminar este volumen?")
+                    .with_prompt("⚠️ ¿Estás seguro de que deseas eliminar este volumen?")
                     .default(false)
                     .interact()
                     .unwrap()
@@ -159,5 +163,10 @@ pub fn manage_volumes() {
             4 => break,
             _ => break,
         }
+
+        // Esperar Enter antes de volver al menú
+        print!("\nPresiona Enter para continuar...");
+        io::stdout().flush().unwrap();
+        let _ = io::stdin().read_line(&mut String::new());
     }
 }

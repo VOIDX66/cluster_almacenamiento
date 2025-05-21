@@ -8,25 +8,42 @@ use std::collections::HashSet;
 pub fn mount_volume() {
     println!("\n📂 Montar volumen GlusterFS");
 
-    let server: String = Input::new()
-        .with_prompt("Nombre del servidor (ej. vm1)")
-        .interact_text()
+    // 👉 Preguntar si desea alta disponibilidad
+    let use_ha = Confirm::new()
+        .with_prompt("¿Quieres montar con alta disponibilidad (HA)?")
+        .default(true)
+        .interact()
         .unwrap();
 
+    // 👉 Obtener nombre de servidor o lista de servidores
+    let server: String = if use_ha {
+        Input::new()
+            .with_prompt("Nombres de los servidores separados por coma (ej. vm1,vm2,vm3)")
+            .interact_text()
+            .unwrap()
+    } else {
+        Input::new()
+            .with_prompt("Nombre del servidor (ej. vm1)")
+            .interact_text()
+            .unwrap()
+    };
+
+    // 👉 Nombre del volumen
     let volume: String = Input::new()
         .with_prompt("Nombre del volumen")
         .interact_text()
         .unwrap();
 
+    // 👉 Nombre del directorio dentro de /media
     let dir_name: String = Input::new()
-    .with_prompt("Nombre del directorio para montar bajo /media (ej. vol_personal)")
-    .interact_text()
-    .unwrap();
+        .with_prompt("Nombre del directorio para montar bajo /media (ej. vol_personal)")
+        .interact_text()
+        .unwrap();
 
     let mount_point = format!("/media/{}", dir_name);
+    let path = Path::new(&mount_point);
 
     // ✅ Crear el directorio si no existe
-    let path = Path::new(&mount_point);
     if !path.exists() {
         println!("📁 La ruta no existe. Creando...");
         if let Err(e) = fs::create_dir_all(&path) {
@@ -35,7 +52,7 @@ pub fn mount_volume() {
         }
     }
 
-
+    // 🚀 Ejecutar el comando de montaje
     println!("🚀 Ejecutando comando:");
     println!("sudo mount -t glusterfs {}:/{} {}", server, volume, mount_point);
 
@@ -43,7 +60,7 @@ pub fn mount_volume() {
         .arg("mount")
         .arg("-t")
         .arg("glusterfs")
-        .arg(format!("{}:/{}", server, volume))
+        .arg(format!("{}:/{}", server.trim(), volume))
         .arg(&mount_point)
         .status();
 
@@ -57,12 +74,13 @@ pub fn mount_volume() {
                 .interact_text()
                 .unwrap();
 
-            // Validar si el usuario existe en el sistema
+            // 🔍 Verificar si el usuario existe
             if get_user_by_name(&username).is_none() {
                 println!("❌ El usuario '{}' no existe en el sistema.", username);
                 return;
             }
 
+            // 🛠 Cambiar permisos del directorio montado
             let chown_status = Command::new("sudo")
                 .arg("chown")
                 .arg(format!("{}:{}", username, username))
