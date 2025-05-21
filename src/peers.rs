@@ -1,10 +1,12 @@
-use dialoguer::Input;
+use dialoguer::{Input, theme::ColorfulTheme};
 use std::process::Command;
 
 pub fn add_peer() {
     println!("\n➕ Añadir nuevo peer (nodo) al cluster");
 
-    let peer_host: String = Input::new()
+    let theme = ColorfulTheme::default();
+
+    let peer_host: String = Input::with_theme(&theme)
         .with_prompt("Hostname o IP del nodo a añadir")
         .interact_text()
         .unwrap();

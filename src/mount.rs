@@ -1,41 +1,29 @@
 use std::fs;
 use std::path::Path;
 use std::process::Command;
-use dialoguer::{Input, Select, Confirm};
-use users::get_user_by_name;
 use std::collections::HashSet;
+use dialoguer::{theme::ColorfulTheme, Input, Select, Confirm};
+use users::get_user_by_name;
 
 pub fn mount_volume() {
     println!("\n📂 Montar volumen GlusterFS");
 
-    // 👉 Preguntar si desea alta disponibilidad
-    let use_ha = Confirm::new()
-        .with_prompt("¿Quieres montar con alta disponibilidad (HA)?")
-        .default(true)
-        .interact()
+    let theme = ColorfulTheme::default();
+
+    // 👉 Obtener nombre del servidor
+    let server: String = Input::with_theme(&theme)
+        .with_prompt("Nombre del servidor (ej. vm1)")
+        .interact_text()
         .unwrap();
 
-    // 👉 Obtener nombre de servidor o lista de servidores
-    let server: String = if use_ha {
-        Input::new()
-            .with_prompt("Nombres de los servidores separados por coma (ej. vm1,vm2,vm3)")
-            .interact_text()
-            .unwrap()
-    } else {
-        Input::new()
-            .with_prompt("Nombre del servidor (ej. vm1)")
-            .interact_text()
-            .unwrap()
-    };
-
     // 👉 Nombre del volumen
-    let volume: String = Input::new()
+    let volume: String = Input::with_theme(&theme)
         .with_prompt("Nombre del volumen")
         .interact_text()
         .unwrap();
 
     // 👉 Nombre del directorio dentro de /media
-    let dir_name: String = Input::new()
+    let dir_name: String = Input::with_theme(&theme)
         .with_prompt("Nombre del directorio para montar bajo /media (ej. vol_personal)")
         .interact_text()
         .unwrap();
@@ -69,7 +57,7 @@ pub fn mount_volume() {
             println!("✅ Volumen montado exitosamente.");
 
             // 🔐 Solicitar nombre de usuario para asignar permisos
-            let username: String = Input::new()
+            let username: String = Input::with_theme(&theme)
                 .with_prompt("🔒 ¿A qué usuario quieres dar permisos del punto de montaje?")
                 .interact_text()
                 .unwrap();
@@ -112,14 +100,14 @@ fn is_protected_path(path: &str) -> bool {
 pub fn manage_mounts() {
     println!("\n🧰 Gestión de puntos de montaje en /media/");
 
-    // Ejecutar el comando `mount` y capturar la salida
+    let theme = ColorfulTheme::default();
+
     let output = Command::new("mount")
         .output()
         .expect("❌ No se pudo ejecutar el comando `mount`");
 
     let mount_output = String::from_utf8_lossy(&output.stdout);
 
-    // Filtrar solo los montajes que estén en /media/
     let media_mounts: Vec<&str> = mount_output
         .lines()
         .filter(|line| line.contains(" /media/"))
@@ -130,7 +118,6 @@ pub fn manage_mounts() {
         return;
     }
 
-    // Construir lista para seleccionar
     let items: Vec<String> = media_mounts
         .iter()
         .map(|line| {
@@ -143,7 +130,7 @@ pub fn manage_mounts() {
         })
         .collect();
 
-    let selection = Select::new()
+    let selection = Select::with_theme(&theme)
         .with_prompt("Selecciona un volumen a desmontar")
         .items(&items)
         .default(0)
@@ -173,7 +160,7 @@ pub fn manage_mounts() {
             if is_protected_path(mount_path) {
                 println!("🛡️ Ruta protegida. No se puede eliminar.");
             } else {
-                let remove = Confirm::new()
+                let remove = Confirm::with_theme(&theme)
                     .with_prompt(format!("¿Deseas eliminar el directorio {}?", mount_path))
                     .default(false)
                     .interact()

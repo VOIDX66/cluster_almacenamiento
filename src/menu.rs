@@ -1,4 +1,4 @@
-use dialoguer::Select;
+use dialoguer::{Select, theme::ColorfulTheme};
 
 pub fn show_main_menu(is_master: bool) {
     loop {
@@ -6,7 +6,7 @@ pub fn show_main_menu(is_master: bool) {
             "Editar /etc/hosts",
             "Gestionar bricks",
             "Montar volumen",
-            "Gestionar montajes", // ✅ Agregado aquí
+            "Gestionar montajes",
             "Salir",
         ];
 
@@ -17,7 +17,7 @@ pub fn show_main_menu(is_master: bool) {
             options.insert(5, "Gestionar volúmenes");
         }
 
-        let selection = Select::new()
+        let selection = Select::with_theme(&ColorfulTheme::default())
             .with_prompt("¿Qué deseas hacer?")
             .items(&options)
             .default(0)
@@ -33,7 +33,7 @@ pub fn show_main_menu(is_master: bool) {
                 4 => crate::cluster::check_status(),
                 5 => crate::volume::manage_volumes(),
                 6 => crate::mount::mount_volume(),
-                7 => crate::mount::manage_mounts(), // ✅ Acción correspondiente
+                7 => crate::mount::manage_mounts(),
                 _ => break,
             }
         } else {
@@ -41,7 +41,7 @@ pub fn show_main_menu(is_master: bool) {
                 0 => crate::hosts::edit_hosts(),
                 1 => crate::bricks::manage_bricks(),
                 2 => crate::mount::mount_volume(),
-                3 => crate::mount::manage_mounts(), // ✅ Acción correspondiente
+                3 => crate::mount::manage_mounts(),
                 _ => break,
             }
         }

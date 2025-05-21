@@ -1,69 +1,116 @@
-use dialoguer::{Input, Confirm};
-use std::fs;
-use std::path::Path;
-use std::process::Command;
+use std::{fs, path::Path, process::Command};
+use dialoguer::{theme::ColorfulTheme, Input, Select, Confirm};
 
-pub fn manage_bricks() {
-    println!("\n🧱 Configuración del directorio brick");
-
-    let default_path = "/gluster/brick1";
-    let path: String = Input::new()
-        .with_prompt("Ruta del brick")
-        .default(default_path.to_string())
+fn create_brick() {
+    let brick_name: String = Input::new()
+        .with_prompt("Nombre del brick (ej. datos, respaldo)")
         .interact_text()
         .unwrap();
 
-    let path = Path::new(&path);
+    let full_path = format!("/gluster/{}", brick_name);
+    let path = Path::new(&full_path);
 
     if path.exists() {
-        println!("✅ El directorio ya existe: {}", path.display());
-    } else {
-        match fs::create_dir_all(path) {
-            Ok(_) => println!("✅ Directorio creado: {}", path.display()),
-            Err(e) => {
-                eprintln!("❌ Error al crear el directorio: {e}");
-                return;
-            }
+        println!("⚠️ El brick ya existe: {}", path.display());
+        return;
+    }
+
+    match fs::create_dir_all(path) {
+        Ok(_) => println!("✅ Brick creado: {}", path.display()),
+        Err(e) => {
+            eprintln!("❌ Error al crear el directorio: {e}");
+            return;
         }
     }
 
-    // Asignar permisos y propiedad al usuario actual
     let user = whoami::username();
 
-    println!("🔧 Asignando permisos al usuario '{}'", user);
-
-    // Nota: asumimos que el grupo es igual al usuario
-    let chown_status = Command::new("sudo")
+    let _ = Command::new("sudo")
         .arg("chown")
         .arg(format!("{user}:{user}"))
-        .arg(path)
+        .arg(&full_path)
         .status();
 
-    if let Ok(status) = chown_status {
-        if status.success() {
-            println!("✅ Propiedad asignada correctamente.");
-        } else {
-            eprintln!("❌ No se pudo cambiar la propiedad. Usa sudo manualmente si es necesario.");
-        }
-    }
-
-    let chmod_status = Command::new("sudo")
+    let _ = Command::new("sudo")
         .arg("chmod")
         .arg("775")
-        .arg(path)
+        .arg(&full_path)
         .status();
 
-    if let Ok(status) = chmod_status {
-        if status.success() {
-            println!("✅ Permisos establecidos a 775.");
+    println!("🔐 Permisos y propiedad asignados correctamente.");
+}
+
+fn list_bricks() {
+    let base_path = Path::new("/gluster/");
+    println!("\n📄 Lista de bricks en /gluster/");
+
+    match fs::read_dir(base_path) {
+        Ok(entries) => {
+            let mut count = 0;
+            for entry in entries.flatten() {
+                if entry.path().is_dir() {
+                    println!("🧱 {}", entry.file_name().to_string_lossy());
+                    count += 1;
+                }
+            }
+
+            if count == 0 {
+                println!("⚠️ No hay bricks creados.");
+            }
         }
+        Err(_) => println!("❌ No se pudo acceder a /gluster/. ¿Existe?"),
+    }
+}
+
+fn delete_brick() {
+    list_bricks();
+
+    let brick_name: String = Input::new()
+        .with_prompt("Nombre del brick que deseas eliminar")
+        .interact_text()
+        .unwrap();
+
+    let full_path = format!("/gluster/{}", brick_name);
+    let path = Path::new(&full_path);
+
+    if !path.exists() {
+        println!("❌ El brick no existe: {}", full_path);
+        return;
     }
 
     if Confirm::new()
-        .with_prompt("¿Quieres crear otro directorio brick?")
+        .with_prompt(format!("¿Estás seguro de que quieres eliminar {}?", full_path))
+        .default(false)
         .interact()
         .unwrap()
     {
-        manage_bricks();
+        match fs::remove_dir_all(path) {
+            Ok(_) => println!("🗑️ Brick eliminado correctamente."),
+            Err(e) => println!("❌ No se pudo eliminar: {e}"),
+        }
     }
 }
+
+
+pub fn manage_bricks() {
+    loop {
+        println!("\n🧱 Gestión de bricks GlusterFS");
+
+        let options = vec!["Crear nuevo brick", "Listar bricks existentes", "Eliminar un brick", "Salir"];
+        let selection = Select::with_theme(&ColorfulTheme::default())
+            .with_prompt("Elige una opción")
+            .items(&options)
+            .default(0)
+            .interact()
+            .unwrap();
+
+        match selection {
+            0 => create_brick(),
+            1 => list_bricks(),
+            2 => delete_brick(),
+            3 => break,
+            _ => continue,
+        }
+    }
+}
+

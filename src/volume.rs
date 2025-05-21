@@ -1,22 +1,17 @@
-use dialoguer::{Input, Select, Confirm};
+use dialoguer::{Input, Select, Confirm, theme::ColorfulTheme};
 use std::process::Command;
 use std::io::{self, Write};
 
 pub fn create_volume() {
     println!("\n📦 Crear volumen GlusterFS");
 
-    let vol_name: String = Input::new()
+    let theme = ColorfulTheme::default();
+
+    let vol_name: String = Input::with_theme(&theme)
         .with_prompt("Nombre del volumen")
         .interact_text()
         .unwrap();
 
-    let use_ha = Confirm::new()
-        .with_prompt("¿Quieres habilitar alta disponibilidad (HA) con réplicas?")
-        .default(true)
-        .interact()
-        .unwrap();
-
-    // Comando base
     let mut cmd: Vec<String> = vec![
         "gluster".to_string(),
         "volume".to_string(),
@@ -24,29 +19,13 @@ pub fn create_volume() {
         vol_name.clone(),
     ];
 
-    let mut min_bricks = 1;
-
-    if use_ha {
-        let replica_count: String = Input::new()
-            .with_prompt("¿Cuántas réplicas?")
-            .default("2".into())
-            .interact_text()
-            .unwrap();
-
-        cmd.push("replica".to_string());
-        cmd.push(replica_count.clone());
-
-        // Se requieren al menos tantas bricks como réplicas
-        min_bricks = replica_count.parse::<usize>().unwrap_or(2);
-    }
-
     println!("🧱 Ahora ingresa los bricks para este volumen.");
     println!("Formato: vm1:/ruta/brick1 (uno por línea, escribe 'fin' para terminar)");
 
     let mut bricks: Vec<String> = Vec::new();
 
     loop {
-        let input: String = Input::new()
+        let input: String = Input::with_theme(&theme)
             .with_prompt("Brick")
             .interact_text()
             .unwrap();
@@ -62,12 +41,8 @@ pub fn create_volume() {
         }
     }
 
-    if bricks.len() < min_bricks {
-        eprintln!(
-            "❌ Se necesitan al menos {} bricks {}.",
-            min_bricks,
-            if use_ha { "para replicación (HA)" } else { "" }
-        );
+    if bricks.is_empty() {
+        eprintln!("❌ Se necesita al menos 1 brick para crear el volumen.");
         return;
     }
 
@@ -79,7 +54,7 @@ pub fn create_volume() {
 
     let status = Command::new("sudo")
         .arg("gluster")
-        .args(&cmd[1..]) // todos menos el primero "gluster"
+        .args(&cmd[1..])
         .status()
         .expect("Error al ejecutar el comando");
 
@@ -102,6 +77,8 @@ pub fn create_volume() {
 }
 
 pub fn manage_volumes() {
+    let theme = ColorfulTheme::default();
+
     loop {
         let options = vec![
             "📋 Listar volúmenes (con detalles)",
@@ -111,7 +88,7 @@ pub fn manage_volumes() {
             "↩️ Volver al menú",
         ];
 
-        let selection = Select::new()
+        let selection = Select::with_theme(&theme)
             .with_prompt("Gestión de volúmenes")
             .items(&options)
             .default(0)
@@ -120,13 +97,12 @@ pub fn manage_volumes() {
 
         match selection {
             0 => {
-                // Mostrar información detallada del volumen
                 let _ = Command::new("gluster")
                     .args(["volume", "info"])
                     .status();
             }
             1 => {
-                let name: String = Input::new()
+                let name: String = Input::with_theme(&theme)
                     .with_prompt("Nombre del volumen a iniciar")
                     .interact_text()
                     .unwrap();
@@ -135,7 +111,7 @@ pub fn manage_volumes() {
                     .status();
             }
             2 => {
-                let name: String = Input::new()
+                let name: String = Input::with_theme(&theme)
                     .with_prompt("Nombre del volumen a detener")
                     .interact_text()
                     .unwrap();
@@ -144,12 +120,12 @@ pub fn manage_volumes() {
                     .status();
             }
             3 => {
-                let name: String = Input::new()
+                let name: String = Input::with_theme(&theme)
                     .with_prompt("Nombre del volumen a eliminar")
                     .interact_text()
                     .unwrap();
 
-                if Confirm::new()
+                if Confirm::with_theme(&theme)
                     .with_prompt("⚠️ ¿Estás seguro de que deseas eliminar este volumen?")
                     .default(false)
                     .interact()
