@@ -1,0 +1,6 @@
+# Primero se ignora todo en target/
+target/*
+target/release/*
+# Luego se excluye el ejecutable
+!target/release
+!target/release/cluster_almacenamiento
