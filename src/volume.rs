@@ -71,7 +71,8 @@ pub fn create_volume() {
     println!("sudo {}", cmd.join(" "));
 
     let status = Command::new("sudo")
-        .args(cmd.iter().skip(1).map(|s| s.as_str())) // saltamos el "gluster" porque lo pasamos como primer arg a new()?
+        .arg("gluster")
+        .args(&cmd[1..]) // los argumentos después de "gluster"
         .status()
         .expect("Error al ejecutar el comando");
 
