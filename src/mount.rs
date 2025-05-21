@@ -1,8 +1,9 @@
 use std::fs;
 use std::path::Path;
 use std::process::Command;
-use dialoguer::Input;
+use dialoguer::{Input, Select, Confirm};
 use users::get_user_by_name;
+use std::collections::HashSet;
 
 pub fn mount_volume() {
     println!("\n📂 Montar volumen GlusterFS");
@@ -77,5 +78,93 @@ pub fn mount_volume() {
         }
     } else {
         println!("❌ Error al ejecutar el comando de montaje.");
+    }
+}
+
+fn is_protected_path(path: &str) -> bool {
+    let protected = HashSet::from([
+        "/", "/boot", "/home", "/etc", "/usr", "/var", "/bin", "/sbin", "/lib", "/lib64", "/mnt"
+    ]);
+    protected.contains(path)
+}
+
+pub fn manage_mounts() {
+    println!("\n🧰 Gestión de puntos de montaje GlusterFS");
+
+    // Obtener puntos de montaje desde `mount`
+    let output = Command::new("mount")
+        .output()
+        .expect("❌ No se pudo ejecutar el comando `mount`");
+
+    let mount_output = String::from_utf8_lossy(&output.stdout);
+    let gluster_mounts: Vec<&str> = mount_output
+        .lines()
+        .filter(|line| line.contains("type glusterfs"))
+        .collect();
+
+    if gluster_mounts.is_empty() {
+        println!("⚠️ No hay volúmenes GlusterFS montados.");
+        return;
+    }
+
+    // Mostrar lista
+    let items: Vec<String> = gluster_mounts
+        .iter()
+        .map(|line| {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 3 {
+                format!("{} (en {})", parts[0], parts[2])
+            } else {
+                line.to_string()
+            }
+        })
+        .collect();
+
+    let selection = Select::new()
+        .with_prompt("Selecciona un volumen a desmontar")
+        .items(&items)
+        .default(0)
+        .interact()
+        .unwrap();
+
+    let line = gluster_mounts[selection];
+    let parts: Vec<&str> = line.split_whitespace().collect();
+
+    if parts.len() < 3 {
+        println!("❌ No se pudo interpretar el punto de montaje.");
+        return;
+    }
+
+    let mount_path = parts[2];
+
+    println!("🔽 Desmontando: {}", mount_path);
+    let umount_status = Command::new("sudo")
+        .arg("umount")
+        .arg(mount_path)
+        .status();
+
+    match umount_status {
+        Ok(status) if status.success() => {
+            println!("✅ Desmontado correctamente.");
+
+            if is_protected_path(mount_path) {
+                println!("🛡️ Ruta protegida. No se puede eliminar.");
+            } else {
+                let remove = Confirm::new()
+                    .with_prompt(format!("¿Deseas eliminar el directorio {}?", mount_path))
+                    .default(false)
+                    .interact()
+                    .unwrap();
+
+                if remove {
+                    if let Err(e) = fs::remove_dir_all(Path::new(mount_path)) {
+                        println!("⚠️ No se pudo eliminar: {}", e);
+                    } else {
+                        println!("🗑️ Directorio eliminado.");
+                    }
+                }
+            }
+        }
+        _ => println!("❌ Falló el desmontaje."),
     }
 }
