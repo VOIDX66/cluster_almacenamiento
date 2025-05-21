@@ -5,7 +5,7 @@ Instalar tanto gluster server como client
 
 ```bash
 sudo apt update
-sudo apt install glusterfs-server glusterfs-client
+sudo apt install -y glusterfs-server glusterfs-client
 ```
 
 iniciar los servicios 
