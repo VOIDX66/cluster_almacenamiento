@@ -45,6 +45,24 @@ pub fn mount_volume() {
     if let Ok(s) = status {
         if s.success() {
             println!("✅ Volumen montado exitosamente.");
+            use whoami;
+
+            let username = whoami::username();
+
+            let chown_status = Command::new("sudo")
+                .arg("chown")
+                .arg(format!("{}:{}", username, username))
+                .arg(&mount_point)
+                .status();
+
+            if let Ok(cs) = chown_status {
+                if cs.success() {
+                    println!("✅ Permisos cambiados a usuario: {}", username);
+                } else {
+                    println!("⚠️ No se pudo cambiar la propiedad del punto de montaje.");
+                }
+            }
+            
         } else {
             println!("❌ Falló el montaje. Verifica que el volumen esté iniciado y que tengas permisos.");
         }

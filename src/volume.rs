@@ -1,4 +1,4 @@
-use dialoguer::{Input, Confirm};
+use dialoguer::{Input, Select, Confirm};
 use std::process::Command;
 
 pub fn create_volume() {
@@ -95,5 +95,69 @@ pub fn create_volume() {
         }
     } else {
         println!("❌ Error al crear el volumen.");
+    }
+}
+
+pub fn manage_volumes() {
+    loop {
+        let options = vec![
+            "📋 Listar volúmenes",
+            "▶️ Iniciar volumen",
+            "⏹️ Detener volumen",
+            "🗑️ Eliminar volumen",
+            "↩️ Volver al menú",
+        ];
+
+        let selection = Select::new()
+            .with_prompt("Gestión de volúmenes")
+            .items(&options)
+            .default(0)
+            .interact()
+            .unwrap();
+
+        match selection {
+            0 => {
+                let _ = Command::new("gluster")
+                    .args(["volume", "list"])
+                    .status();
+            }
+            1 => {
+                let name: String = Input::new()
+                    .with_prompt("Nombre del volumen a iniciar")
+                    .interact_text()
+                    .unwrap();
+                let _ = Command::new("sudo")
+                    .args(["gluster", "volume", "start", &name])
+                    .status();
+            }
+            2 => {
+                let name: String = Input::new()
+                    .with_prompt("Nombre del volumen a detener")
+                    .interact_text()
+                    .unwrap();
+                let _ = Command::new("sudo")
+                    .args(["gluster", "volume", "stop", &name, "force"])
+                    .status();
+            }
+            3 => {
+                let name: String = Input::new()
+                    .with_prompt("Nombre del volumen a eliminar")
+                    .interact_text()
+                    .unwrap();
+
+                if Confirm::new()
+                    .with_prompt("¿Estás seguro de que deseas eliminar este volumen?")
+                    .default(false)
+                    .interact()
+                    .unwrap()
+                {
+                    let _ = Command::new("sudo")
+                        .args(["gluster", "volume", "delete", &name])
+                        .status();
+                }
+            }
+            4 => break,
+            _ => break,
+        }
     }
 }

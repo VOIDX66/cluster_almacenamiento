@@ -13,6 +13,8 @@ pub fn show_main_menu(is_master: bool) {
             options.insert(2, "Agregar peer");
             options.insert(3, "Crear e iniciar volumen");
             options.insert(4, "Ver estado del clúster");
+            options.insert(5, "Gestionar volúmenes");
+
         }
 
         let selection = Select::new()
@@ -29,8 +31,8 @@ pub fn show_main_menu(is_master: bool) {
                 2 => crate::peers::add_peer(),
                 3 => crate::volume::create_volume(),
                 4 => crate::cluster::check_status(),
-                5 => crate::mount::mount_volume(),
-                
+                5 => crate::volume::manage_volumes(),
+                6 => crate::mount::mount_volume(),
                 _ => break,
             }
         } else {
