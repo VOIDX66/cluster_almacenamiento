@@ -1,39 +1,54 @@
-use dialoguer::Input;
+use std::fs;
+use std::path::Path;
 use std::process::Command;
+use dialoguer::Input;
 
 pub fn mount_volume() {
-    println!("\n📌 Montar volumen GlusterFS");
+    println!("\n📂 Montar volumen GlusterFS");
 
-    let vol_name: String = Input::new()
-        .with_prompt("Nombre del volumen a montar")
+    let server: String = Input::new()
+        .with_prompt("Nombre del servidor (ej. vm1)")
         .interact_text()
         .unwrap();
 
-    let host: String = Input::new()
-        .with_prompt("Hostname o IP del nodo Gluster que sirve el volumen")
+    let volume: String = Input::new()
+        .with_prompt("Nombre del volumen")
         .interact_text()
         .unwrap();
 
     let mount_point: String = Input::new()
-        .with_prompt("Directorio destino donde montar el volumen (debe existir)")
-        .default("/mnt/gluster_vol".into())
+        .with_prompt("Ruta donde montar (ej. /mnt/vol_personal)")
         .interact_text()
         .unwrap();
 
-    println!("🔧 Montando volumen...");
+    // ✅ Crear el directorio si no existe
+    let path = Path::new(&mount_point);
+    if !path.exists() {
+        println!("📁 La ruta no existe. Creando...");
+        if let Err(e) = fs::create_dir_all(&path) {
+            eprintln!("❌ No se pudo crear la ruta de montaje: {}", e);
+            return;
+        }
+    }
+
+    println!("🚀 Ejecutando comando:");
+    println!("sudo mount -t glusterfs {}:/{} {}", server, volume, mount_point);
 
     let status = Command::new("sudo")
         .arg("mount")
         .arg("-t")
         .arg("glusterfs")
-        .arg(format!("{}:{}", host, vol_name))
+        .arg(format!("{}:/{}", server, volume))
         .arg(&mount_point)
-        .status()
-        .expect("Error ejecutando mount");
+        .status();
 
-    if status.success() {
-        println!("✅ Volumen montado exitosamente en {}", mount_point);
+    if let Ok(s) = status {
+        if s.success() {
+            println!("✅ Volumen montado exitosamente.");
+        } else {
+            println!("❌ Falló el montaje. Verifica que el volumen esté iniciado y que tengas permisos.");
+        }
     } else {
-        println!("❌ Error al montar el volumen. Revisa que el directorio exista y que el volumen esté activo.");
+        println!("❌ Error al ejecutar el comando de montaje.");
     }
 }
