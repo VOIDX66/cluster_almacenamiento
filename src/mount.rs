@@ -18,10 +18,12 @@ pub fn mount_volume() {
         .interact_text()
         .unwrap();
 
-    let mount_point: String = Input::new()
-        .with_prompt("Ruta donde montar (ej. /mnt/vol_personal)")
-        .interact_text()
-        .unwrap();
+    let dir_name: String = Input::new()
+    .with_prompt("Nombre del directorio para montar bajo /media (ej. vol_personal)")
+    .interact_text()
+    .unwrap();
+
+    let mount_point = format!("/media/{}", dir_name);
 
     // ✅ Crear el directorio si no existe
     let path = Path::new(&mount_point);
@@ -32,6 +34,7 @@ pub fn mount_volume() {
             return;
         }
     }
+
 
     println!("🚀 Ejecutando comando:");
     println!("sudo mount -t glusterfs {}:/{} {}", server, volume, mount_point);
@@ -89,26 +92,28 @@ fn is_protected_path(path: &str) -> bool {
 }
 
 pub fn manage_mounts() {
-    println!("\n🧰 Gestión de puntos de montaje GlusterFS");
+    println!("\n🧰 Gestión de puntos de montaje en /media/");
 
-    // Obtener puntos de montaje desde `mount`
+    // Ejecutar el comando `mount` y capturar la salida
     let output = Command::new("mount")
         .output()
         .expect("❌ No se pudo ejecutar el comando `mount`");
 
     let mount_output = String::from_utf8_lossy(&output.stdout);
-    let gluster_mounts: Vec<&str> = mount_output
+
+    // Filtrar solo los montajes que estén en /media/
+    let media_mounts: Vec<&str> = mount_output
         .lines()
-        .filter(|line| line.contains("type glusterfs"))
+        .filter(|line| line.contains(" /media/"))
         .collect();
 
-    if gluster_mounts.is_empty() {
-        println!("⚠️ No hay volúmenes GlusterFS montados.");
+    if media_mounts.is_empty() {
+        println!("⚠️ No hay montajes activos en /media/");
         return;
     }
 
-    // Mostrar lista
-    let items: Vec<String> = gluster_mounts
+    // Construir lista para seleccionar
+    let items: Vec<String> = media_mounts
         .iter()
         .map(|line| {
             let parts: Vec<&str> = line.split_whitespace().collect();
@@ -127,7 +132,7 @@ pub fn manage_mounts() {
         .interact()
         .unwrap();
 
-    let line = gluster_mounts[selection];
+    let line = media_mounts[selection];
     let parts: Vec<&str> = line.split_whitespace().collect();
 
     if parts.len() < 3 {
