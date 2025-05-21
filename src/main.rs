@@ -5,6 +5,7 @@ mod bricks;
 mod volume;
 mod mount;
 mod peers;
+mod cluster;
 
 fn main() {
     let is_master = mode::ask_role();
