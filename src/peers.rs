@@ -7,9 +7,14 @@ pub fn add_peer() {
     let theme = ColorfulTheme::default();
 
     let peer_host: String = Input::with_theme(&theme)
-        .with_prompt("Hostname o IP del nodo a añadir")
+        .with_prompt("Hostname o IP del nodo a añadir (o escribe 'salir' para cancelar)")
         .interact_text()
         .unwrap();
+
+    if peer_host.trim().eq_ignore_ascii_case("salir") {
+        println!("❎ Operación cancelada por el usuario.");
+        return;
+    }
 
     println!("🔧 Ejecutando: sudo gluster peer probe {}", peer_host);
 
@@ -19,7 +24,7 @@ pub fn add_peer() {
         .arg("probe")
         .arg(&peer_host)
         .status()
-        .expect("Error ejecutando gluster peer probe");
+        .expect("❌ Error ejecutando gluster peer probe");
 
     if status.success() {
         println!("✅ Nodo '{}' añadido correctamente al cluster.", peer_host);
