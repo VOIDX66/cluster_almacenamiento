@@ -249,11 +249,10 @@ fn add_bricks() {
     }
 }
 
-fn check_force_migration() -> Result<bool, String> {
-    // Retorna Ok(true) si está ON, Ok(false) si está OFF, Err si hubo error
-    match run_command("gluster", &["volume", "get", "cluster.force-migration"]) {
+fn check_force_migration(volume: &str) -> Result<bool, String> {
+    let args = ["volume", "get", volume, "cluster.force-migration"];
+    match run_command("gluster", &args) {
         Ok(output) => {
-            // La salida tiene línea tipo: "Option cluster.force-migration: on"
             for line in output.lines() {
                 if line.contains("cluster.force-migration") {
                     if line.contains("on") {
@@ -272,10 +271,25 @@ fn check_force_migration() -> Result<bool, String> {
 fn remove_bricks() {
     let theme = ColorfulTheme::default();
 
-    // Verificar cluster.force-migration antes de continuar
-    match check_force_migration() {
+    let volumes = list_volumes();
+    if volumes.is_empty() {
+        println!("⚠️ No hay volúmenes para eliminar bricks.");
+        return;
+    }
+
+    let vol_idx = Select::with_theme(&theme)
+        .with_prompt("Selecciona el volumen del que quieres eliminar bricks")
+        .items(&volumes)
+        .default(0)
+        .interact()
+        .unwrap();
+
+    let selected_vol = &volumes[vol_idx];
+
+    // ⚠️ Verificación aquí, después de seleccionar el volumen
+    match check_force_migration(selected_vol) {
         Ok(true) => {
-            println!("⚠️ Advertencia: cluster.force-migration está habilitado (ON). Esto puede causar corrupción de datos al eliminar bricks.");
+            println!("⚠️ Advertencia: cluster.force-migration está habilitado (ON) en el volumen '{}'. Esto puede causar corrupción de datos al eliminar bricks.", selected_vol);
             if !Confirm::with_theme(&theme)
                 .with_prompt("¿Quieres continuar con la eliminación del brick igual? (no recomendado)")
                 .default(false)
@@ -287,7 +301,7 @@ fn remove_bricks() {
             }
         }
         Ok(false) => {
-            // todo bien, continuar
+            // todo bien
         }
         Err(e) => {
             println!("⚠️ No se pudo verificar cluster.force-migration: {}", e);
@@ -295,30 +309,21 @@ fn remove_bricks() {
         }
     }
 
-    let volumes = list_volumes();
-    if volumes.is_empty() {
-        println!("⚠️ No hay volúmenes para eliminar bricks.");
-        return;
-    }
-    let vol_idx = Select::with_theme(&theme)
-        .with_prompt("Selecciona el volumen del que quieres eliminar bricks")
-        .items(&volumes)
-        .default(0)
-        .interact()
-        .unwrap();
-    let selected_vol = &volumes[vol_idx];
     let bricks = list_bricks(selected_vol);
     if bricks.is_empty() {
         println!("⚠️ Este volumen no tiene bricks listados o no se pudieron obtener.");
         return;
     }
+
     let brick_idx = Select::with_theme(&theme)
         .with_prompt("Selecciona el brick que quieres eliminar")
         .items(&bricks)
         .default(0)
         .interact()
         .unwrap();
+
     let selected_brick = &bricks[brick_idx];
+
     if !Confirm::with_theme(&theme)
         .with_prompt(format!(
             "⚠️ ¿Seguro que deseas eliminar el brick '{}' del volumen '{}'? Esto puede afectar los datos.",
@@ -331,6 +336,7 @@ fn remove_bricks() {
         println!("🛑 Operación cancelada.");
         return;
     }
+
     println!("Iniciando eliminación del brick...");
     let start_status = Command::new("sudo")
         .args(&[
@@ -342,6 +348,7 @@ fn remove_bricks() {
             "start",
         ])
         .status();
+
     match start_status {
         Ok(st) if st.success() => {
             println!("✅ Proceso de eliminación iniciado. Recuerda hacer 'gluster volume remove-brick <vol_name> <brick> commit' para completar la operación.");
