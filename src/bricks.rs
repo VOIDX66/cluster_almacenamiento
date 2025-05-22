@@ -62,35 +62,49 @@ fn list_bricks() {
     }
 }
 
-fn delete_brick() {
-    list_bricks();
+pub fn delete_brick() {
+    let theme = ColorfulTheme::default();
+    let gluster_path = "/gluster";
 
-    let brick_name: String = Input::new()
-        .with_prompt("Nombre del brick que deseas eliminar")
-        .interact_text()
-        .unwrap();
+    let bricks = match fs::read_dir(gluster_path) {
+        Ok(entries) => entries
+            .filter_map(Result::ok)
+            .filter(|e| e.path().is_dir())
+            .map(|e| e.file_name().into_string().unwrap_or_default())
+            .collect::<Vec<String>>(),
+        Err(_) => {
+            println!("❌ No se pudo acceder al directorio de bricks en {}", gluster_path);
+            return;
+        }
+    };
 
-    let full_path = format!("/gluster/{}", brick_name);
-    let path = Path::new(&full_path);
-
-    if !path.exists() {
-        println!("❌ El brick no existe: {}", full_path);
+    if bricks.is_empty() {
+        println!("📁 No hay bricks disponibles en {}.", gluster_path);
         return;
     }
 
-    if Confirm::new()
-        .with_prompt(format!("¿Estás seguro de que quieres eliminar {}?", full_path))
+    let selection = Select::with_theme(&theme)
+        .with_prompt("Selecciona el brick que deseas eliminar")
+        .items(&bricks)
+        .default(0)
+        .interact()
+        .unwrap();
+
+    let selected_brick = &bricks[selection];
+    let full_path = format!("{}/{}", gluster_path, selected_brick);
+
+    if Confirm::with_theme(&theme)
+        .with_prompt(format!("¿Estás seguro de que quieres eliminar '{}'", full_path))
         .default(false)
         .interact()
         .unwrap()
     {
-        match fs::remove_dir_all(path) {
-            Ok(_) => println!("🗑️ Brick eliminado correctamente."),
-            Err(e) => println!("❌ No se pudo eliminar: {e}"),
+        match fs::remove_dir_all(&full_path) {
+            Ok(_) => println!("🗑️ Brick '{}' eliminado correctamente.", selected_brick),
+            Err(e) => println!("❌ No se pudo eliminar '{}': {e}", full_path),
         }
     }
 }
-
 
 pub fn manage_bricks() {
     loop {
