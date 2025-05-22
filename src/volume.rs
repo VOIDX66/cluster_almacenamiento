@@ -90,12 +90,17 @@ pub fn create_volume() {
     let theme = ColorfulTheme::default();
 
     let vol_name: String = Input::with_theme(&theme)
-        .with_prompt("Nombre del volumen")
+        .with_prompt("Nombre del volumen (o escribe 'salir' para cancelar)")
         .interact_text()
         .unwrap();
 
+    if vol_name.trim().eq_ignore_ascii_case("salir") {
+        println!("❎ Operación cancelada.");
+        return;
+    }
+
     println!("🧱 Ahora ingresa los bricks para este volumen.");
-    println!("Formato: vm1:/ruta/brick1 (uno por línea, escribe 'fin' para terminar)");
+    println!("Formato: vm1:/ruta/brick1 (uno por línea). Escribe 'fin' para terminar o 'salir' para cancelar completamente.");
 
     let mut bricks: Vec<String> = Vec::new();
 
@@ -105,7 +110,14 @@ pub fn create_volume() {
             .interact_text()
             .unwrap();
 
-        if input.trim().to_lowercase() == "fin" {
+        let trimmed = input.trim().to_lowercase();
+
+        if trimmed == "salir" {
+            println!("❎ Operación cancelada.");
+            return;
+        }
+
+        if trimmed == "fin" {
             break;
         }
 
@@ -120,8 +132,6 @@ pub fn create_volume() {
         eprintln!("❌ Se necesita al menos 1 brick para crear el volumen.");
         return;
     }
-
-    // Aquí podríamos pedir tipo de volumen (replica o distribuido), por simplicidad dejamos distribuido
 
     let mut cmd: Vec<String> = vec![
         "gluster".to_string(),
@@ -159,14 +169,16 @@ pub fn create_volume() {
     }
 }
 
-fn add_bricks() {
+pub fn add_bricks() {
     let theme = ColorfulTheme::default();
 
-    let volumes = list_volumes();
+    let mut volumes = list_volumes();
     if volumes.is_empty() {
         println!("⚠️ No hay volúmenes para agregar bricks.");
         return;
     }
+
+    volumes.insert(0, "❌ Salir".to_string());
 
     let vol_idx = Select::with_theme(&theme)
         .with_prompt("Selecciona el volumen al que quieres agregar bricks")
@@ -175,9 +187,13 @@ fn add_bricks() {
         .interact()
         .unwrap();
 
+    if vol_idx == 0 {
+        println!("❎ Operación cancelada.");
+        return;
+    }
+
     let selected_vol = &volumes[vol_idx];
 
-    // Listamos peers para validar
     let peers = list_peers();
     if peers.is_empty() {
         println!("⚠️ No hay peers conectados. No puedes agregar bricks.");
@@ -190,7 +206,7 @@ fn add_bricks() {
     }
 
     println!("🧱 Ingresa los bricks para agregar al volumen.");
-    println!("Formato: vm1:/ruta/brick1 (uno por línea, escribe 'fin' para terminar)");
+    println!("Formato: vm1:/ruta/brick1 (uno por línea). Escribe 'fin' para terminar o 'salir' para cancelar toda la operación.");
 
     let mut bricks_to_add: Vec<String> = Vec::new();
 
@@ -200,12 +216,32 @@ fn add_bricks() {
             .interact_text()
             .unwrap();
 
-        if input.trim().to_lowercase() == "fin" {
+        let trimmed = input.trim().to_lowercase();
+
+        if trimmed == "salir" {
+            if bricks_to_add.is_empty() {
+                println!("❎ Operación cancelada.");
+                return;
+            } else {
+                let confirm = dialoguer::Confirm::with_theme(&theme)
+                    .with_prompt("Ya has ingresado bricks válidos. ¿Seguro que quieres salir sin aplicar los cambios?")
+                    .default(false)
+                    .interact()
+                    .unwrap();
+                if confirm {
+                    println!("❎ Operación cancelada.");
+                    return;
+                } else {
+                    continue;
+                }
+            }
+        }
+
+        if trimmed == "fin" {
             break;
         }
 
         if input.contains(':') && input.contains('/') {
-            // Validar que el host esté entre los peers
             let host = input.split(':').next().unwrap_or("");
             if peers.contains(&host.to_string()) {
                 bricks_to_add.push(input);
@@ -222,8 +258,6 @@ fn add_bricks() {
         return;
     }
 
-    // Construir el comando para agregar bricks
-    // Ejemplo: gluster volume add-brick <vol_name> <brick1> <brick2> ... force
     let mut cmd = vec![
         "gluster".to_string(),
         "volume".to_string(),
@@ -268,14 +302,16 @@ fn check_force_migration(volume: &str) -> Result<bool, String> {
     }
 }
 
-fn remove_bricks() {
+pub fn remove_bricks() {
     let theme = ColorfulTheme::default();
 
-    let volumes = list_volumes();
+    let mut volumes = list_volumes();
     if volumes.is_empty() {
         println!("⚠️ No hay volúmenes para eliminar bricks.");
         return;
     }
+
+    volumes.insert(0, "❌ Salir".to_string());
 
     let vol_idx = Select::with_theme(&theme)
         .with_prompt("Selecciona el volumen del que quieres eliminar bricks")
@@ -284,9 +320,14 @@ fn remove_bricks() {
         .interact()
         .unwrap();
 
+    if vol_idx == 0 {
+        println!("❎ Operación cancelada.");
+        return;
+    }
+
     let selected_vol = &volumes[vol_idx];
 
-    // ⚠️ Verificación aquí, después de seleccionar el volumen
+    // ⚠️ Verificación de configuración peligrosa
     match check_force_migration(selected_vol) {
         Ok(true) => {
             println!("⚠️ Advertencia: cluster.force-migration está habilitado (ON) en el volumen '{}'. Esto puede causar corrupción de datos al eliminar bricks.", selected_vol);
@@ -300,20 +341,20 @@ fn remove_bricks() {
                 return;
             }
         }
-        Ok(false) => {
-            // todo bien
-        }
+        Ok(false) => {} // nada
         Err(e) => {
             println!("⚠️ No se pudo verificar cluster.force-migration: {}", e);
             println!("Continuando con precaución...");
         }
     }
 
-    let bricks = list_bricks(selected_vol);
+    let mut bricks = list_bricks(selected_vol);
     if bricks.is_empty() {
         println!("⚠️ Este volumen no tiene bricks listados o no se pudieron obtener.");
         return;
     }
+
+    bricks.insert(0, "❌ Salir".to_string());
 
     let brick_idx = Select::with_theme(&theme)
         .with_prompt("Selecciona el brick que quieres eliminar")
@@ -321,6 +362,11 @@ fn remove_bricks() {
         .default(0)
         .interact()
         .unwrap();
+
+    if brick_idx == 0 {
+        println!("❎ Operación cancelada.");
+        return;
+    }
 
     let selected_brick = &bricks[brick_idx];
 
@@ -337,7 +383,7 @@ fn remove_bricks() {
         return;
     }
 
-    println!("Iniciando eliminación del brick...");
+    println!("🚀 Iniciando eliminación del brick...");
     let start_status = Command::new("sudo")
         .args(&[
             "gluster",
@@ -351,7 +397,9 @@ fn remove_bricks() {
 
     match start_status {
         Ok(st) if st.success() => {
-            println!("✅ Proceso de eliminación iniciado. Recuerda hacer 'gluster volume remove-brick <vol_name> <brick> commit' para completar la operación.");
+            println!("✅ Proceso de eliminación iniciado.");
+            println!("ℹ️ Recuerda ejecutar el comando de confirmación:");
+            println!("   sudo gluster volume remove-brick {} {} commit", selected_vol, selected_brick);
         }
         Ok(_) => {
             println!("❌ Falló iniciar la eliminación del brick.");
