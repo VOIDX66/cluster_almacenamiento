@@ -178,7 +178,7 @@ pub fn add_bricks() {
         return;
     }
 
-    volumes.insert(0, "❌ Salir".to_string());
+    volumes.insert(0, "Salir".to_string());
 
     let vol_idx = Select::with_theme(&theme)
         .with_prompt("Selecciona el volumen al que quieres agregar bricks")
@@ -311,7 +311,7 @@ pub fn remove_bricks() {
         return;
     }
 
-    volumes.insert(0, "❌ Salir".to_string());
+    volumes.insert(0, "Salir".to_string());
 
     let vol_idx = Select::with_theme(&theme)
         .with_prompt("Selecciona el volumen del que quieres eliminar bricks")
@@ -453,11 +453,14 @@ pub fn manage_volumes() {
                 }
             }
             1 | 2 | 3 => {
-                let volumes = get_volume_names();
+                let mut volumes = get_volume_names();
                 if volumes.is_empty() {
                     println!("⚠️ No hay volúmenes disponibles.");
                     continue;
                 }
+
+                // Insertamos la opción salir primero
+                volumes.insert(0, "Salir".to_string());
 
                 let vol_index = Select::with_theme(&theme)
                     .with_prompt("Selecciona el volumen")
@@ -465,6 +468,11 @@ pub fn manage_volumes() {
                     .default(0)
                     .interact()
                     .unwrap();
+
+                if vol_index == 0 {
+                    println!("❎ Operación cancelada.");
+                    continue; // Regresa al menú principal
+                }
 
                 let name = &volumes[vol_index];
 
@@ -501,6 +509,8 @@ pub fn manage_volumes() {
                                 Ok(st) if st.success() => println!("✅ Volumen eliminado."),
                                 _ => println!("❌ Falló eliminar volumen."),
                             }
+                        } else {
+                            println!("🛑 Eliminación cancelada.");
                         }
                     }
                     _ => {}
