@@ -355,6 +355,19 @@ fn remove_bricks() {
     }
 }
 
+fn get_volume_names() -> Vec<String> {
+    let output = match Command::new("gluster").args(["volume", "list"]).output() {
+        Ok(out) => out,
+        Err(_) => return vec![], // Devuelve lista vacía si falla
+    };
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    stdout
+        .lines()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect()
+}
 
 pub fn manage_volumes() {
     let theme = ColorfulTheme::default();
@@ -379,56 +392,63 @@ pub fn manage_volumes() {
 
         match selection {
             0 => {
-                match run_command("gluster", &["volume", "info"]) {
-                    Ok(output) => println!("{}", output),
+                match Command::new("gluster").args(["volume", "info"]).output() {
+                    Ok(output) => println!("{}", String::from_utf8_lossy(&output.stdout)),
                     Err(e) => eprintln!("⚠️ Error listando volúmenes: {}", e),
                 }
             }
-            1 => {
-                let name: String = Input::with_theme(&theme)
-                    .with_prompt("Nombre del volumen a iniciar")
-                    .interact_text()
-                    .unwrap();
-                match Command::new("sudo")
-                    .args(["gluster", "volume", "start", &name])
-                    .status()
-                {
-                    Ok(st) if st.success() => println!("✅ Volumen iniciado."),
-                    _ => println!("❌ Falló iniciar volumen."),
+            1 | 2 | 3 => {
+                let volumes = get_volume_names();
+                if volumes.is_empty() {
+                    println!("⚠️ No hay volúmenes disponibles.");
+                    continue;
                 }
-            }
-            2 => {
-                let name: String = Input::with_theme(&theme)
-                    .with_prompt("Nombre del volumen a detener")
-                    .interact_text()
-                    .unwrap();
-                match Command::new("sudo")
-                    .args(["gluster", "volume", "stop", &name, "force"])
-                    .status()
-                {
-                    Ok(st) if st.success() => println!("✅ Volumen detenido."),
-                    _ => println!("❌ Falló detener volumen."),
-                }
-            }
-            3 => {
-                let name: String = Input::with_theme(&theme)
-                    .with_prompt("Nombre del volumen a eliminar")
-                    .interact_text()
+
+                let vol_index = Select::with_theme(&theme)
+                    .with_prompt("Selecciona el volumen")
+                    .items(&volumes)
+                    .default(0)
+                    .interact()
                     .unwrap();
 
-                if Confirm::with_theme(&theme)
-                    .with_prompt("⚠️ ¿Estás seguro de que deseas eliminar este volumen?")
-                    .default(false)
-                    .interact()
-                    .unwrap()
-                {
-                    match Command::new("sudo")
-                        .args(["gluster", "volume", "delete", &name])
-                        .status()
-                    {
-                        Ok(st) if st.success() => println!("✅ Volumen eliminado."),
-                        _ => println!("❌ Falló eliminar volumen."),
+                let name = &volumes[vol_index];
+
+                match selection {
+                    1 => {
+                        match Command::new("sudo")
+                            .args(["gluster", "volume", "start", name])
+                            .status()
+                        {
+                            Ok(st) if st.success() => println!("✅ Volumen iniciado."),
+                            _ => println!("❌ Falló iniciar volumen."),
+                        }
                     }
+                    2 => {
+                        match Command::new("sudo")
+                            .args(["gluster", "volume", "stop", name, "force"])
+                            .status()
+                        {
+                            Ok(st) if st.success() => println!("✅ Volumen detenido."),
+                            _ => println!("❌ Falló detener volumen."),
+                        }
+                    }
+                    3 => {
+                        if Confirm::with_theme(&theme)
+                            .with_prompt(format!("⚠️ ¿Eliminar el volumen '{}'?", name))
+                            .default(false)
+                            .interact()
+                            .unwrap()
+                        {
+                            match Command::new("sudo")
+                                .args(["gluster", "volume", "delete", name])
+                                .status()
+                            {
+                                Ok(st) if st.success() => println!("✅ Volumen eliminado."),
+                                _ => println!("❌ Falló eliminar volumen."),
+                            }
+                        }
+                    }
+                    _ => {}
                 }
             }
             4 => add_bricks(),
