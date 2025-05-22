@@ -1,6 +1,10 @@
 # _**Cluster de Almacenamiento Distribuido**_
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/VOIDX66/cluster_almacenamiento)
 --
+
+<img src="cluster.png" alt="GlusterFS Cluster" width="400"/>
+
+
 Herramienta interactiva escrita en Rust para gestionar clústeres de almacenamiento usando **GlusterFS**. Permite crear volúmenes, agregar o eliminar bricks, conectar peers y más, todo desde una interfaz de línea de comandos amigable.
 
 > 🔧 **Estado actual**: prototipo funcional. Puedes clonarlo, compilarlo y usarlo libremente bajo los términos de la licencia MIT.
