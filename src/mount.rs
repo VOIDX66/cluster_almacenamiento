@@ -12,21 +12,36 @@ pub fn mount_volume() {
 
     // 👉 Obtener nombre del servidor
     let server: String = Input::with_theme(&theme)
-        .with_prompt("Nombre del servidor (ej. vm1)")
+        .with_prompt("Nombre del servidor (ej. vm1) o 'salir' para cancelar")
         .interact_text()
         .unwrap();
+
+    if server.trim().eq_ignore_ascii_case("salir") {
+        println!("❎ Operación cancelada.");
+        return;
+    }
 
     // 👉 Nombre del volumen
     let volume: String = Input::with_theme(&theme)
-        .with_prompt("Nombre del volumen")
+        .with_prompt("Nombre del volumen o 'salir' para cancelar")
         .interact_text()
         .unwrap();
 
+    if volume.trim().eq_ignore_ascii_case("salir") {
+        println!("❎ Operación cancelada.");
+        return;
+    }
+
     // 👉 Nombre del directorio dentro de /media
     let dir_name: String = Input::with_theme(&theme)
-        .with_prompt("Nombre del directorio para montar bajo /media (ej. vol_personal)")
+        .with_prompt("Nombre del directorio para montar bajo /media (ej. vol_personal) o 'salir' para cancelar")
         .interact_text()
         .unwrap();
+
+    if dir_name.trim().eq_ignore_ascii_case("salir") {
+        println!("❎ Operación cancelada.");
+        return;
+    }
 
     let mount_point = format!("/media/{}", dir_name);
     let path = Path::new(&mount_point);
@@ -56,19 +71,22 @@ pub fn mount_volume() {
         if s.success() {
             println!("✅ Volumen montado exitosamente.");
 
-            // 🔐 Solicitar nombre de usuario para asignar permisos
+            // 🔐 Solicitar nombre de usuario
             let username: String = Input::with_theme(&theme)
-                .with_prompt("🔒 ¿A qué usuario quieres dar permisos del punto de montaje?")
+                .with_prompt("🔒 ¿A qué usuario quieres dar permisos del punto de montaje? o 'salir'")
                 .interact_text()
                 .unwrap();
 
-            // 🔍 Verificar si el usuario existe
+            if username.trim().eq_ignore_ascii_case("salir") {
+                println!("❎ Operación cancelada.");
+                return;
+            }
+
             if get_user_by_name(&username).is_none() {
                 println!("❌ El usuario '{}' no existe en el sistema.", username);
                 return;
             }
 
-            // 🛠 Cambiar permisos del directorio montado
             let chown_status = Command::new("sudo")
                 .arg("chown")
                 .arg(format!("{}:{}", username, username))
