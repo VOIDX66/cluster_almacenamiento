@@ -71,4 +71,13 @@ Desde allí podrás:
 * Todos los nodos del clúster deben tener GlusterFS instalado y estar accesibles entre ellos vía red
 * Verifica que los peers estén correctamente conectados antes de crear o modificar volúmenes
 
+### ELIMINAR REGISTROS 
+```bash
+sudo systemctl stop glusterd
+sudo rm -rf /var/lib/glusterd/*
+sudo rm -rf /var/lib/gluster/*
+sudo rm -rf /etc/glusterfs/*
+sudo systemctl start glusterd
+```
+
 Este proyecto está licenciado bajo la Licencia MIT. Ver el archivo [LICENSE](./LICENSE) para más detalles.
