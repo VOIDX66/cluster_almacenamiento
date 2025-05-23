@@ -100,7 +100,7 @@ pub fn create_volume() {
     }
 
     println!("🧱 Ahora ingresa los bricks para este volumen.");
-    println!("Formato: vm1:/ruta/brick1 (uno por línea). Escribe 'fin' para terminar o 'salir' para cancelar completamente.");
+    println!("Formato: vm1:/gluster/brick1 (uno por línea). Escribe 'fin' para terminar o 'salir' para cancelar completamente.");
 
     let mut bricks: Vec<String> = Vec::new();
 
@@ -206,7 +206,7 @@ pub fn add_bricks() {
     }
 
     println!("🧱 Ingresa los bricks para agregar al volumen.");
-    println!("Formato: vm1:/ruta/brick1 (uno por línea). Escribe 'fin' para terminar o 'salir' para cancelar toda la operación.");
+    println!("Formato: vm1:/gluster/brick1 (uno por línea). Escribe 'fin' para terminar o 'salir' para cancelar toda la operación.");
 
     let mut bricks_to_add: Vec<String> = Vec::new();
 
@@ -242,15 +242,11 @@ pub fn add_bricks() {
         }
 
         if input.contains(':') && input.contains('/') {
-            let host = input.split(':').next().unwrap_or("");
-            if peers.contains(&host.to_string()) {
-                bricks_to_add.push(input);
-            } else {
-                println!("⚠️ El host '{}' no está entre los peers conectados.", host);
-            }
+            bricks_to_add.push(input);
         } else {
-            println!("⚠️ Formato inválido. Usa: vm1:/ruta/brick");
+            println!("⚠️ Formato inválido. Usa: vm1:/gluster/brick");
         }
+
     }
 
     if bricks_to_add.is_empty() {
