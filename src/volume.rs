@@ -124,7 +124,7 @@ pub fn create_volume() {
         if input.contains(':') && input.contains('/') {
             bricks.push(input);
         } else {
-            println!("⚠️ Formato inválido. Usa: vm1:/ruta/brick");
+            println!("⚠️ Formato inválido. Usa: vm1:/gluster/brick");
         }
     }
 
